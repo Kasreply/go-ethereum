@@ -142,6 +142,11 @@ func (s *StateStore) GetState(key common.Address) ([]byte, error) {
 		return nil, errors.New("peer returned empty state response")
 	}
 
+	// Verify that the proof is tied to the claimed state root.
+	if remote.Proof.Root != remote.Root {
+		return nil, errors.New("remote proof root does not match remote state root")
+	}
+
 	// Verify the returned value against the remote node's
 	// Merkle root and proof.
 	value, err := VerifyStateProof(
