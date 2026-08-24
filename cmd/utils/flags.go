@@ -261,6 +261,18 @@ var (
 		Usage:    "Scheme to use for storing ethereum state ('hash' or 'path')",
 		Category: flags.StateCategory,
 	}
+	StatePrefixFlag = &cli.UintFlag{
+		Name:     "state.prefix",
+		Usage:    "Prefix length for state-sharing (0 = store full state)",
+		Value:    0,
+		Category: flags.StateCategory,
+	}
+	StateCacheFlag = &cli.IntFlag{
+		Name:     "state.cache",
+		Usage:    "Capacity (number of items) for state-sharing LFU cache",
+		Value:    1024,
+		Category: flags.StateCategory,
+	}
 	StateHistoryFlag = &cli.Uint64Flag{
 		Name:     "history.state",
 		Usage:    "Number of recent blocks to retain state history for (default = 90,000 blocks, 0 = entire chain)",
@@ -947,6 +959,8 @@ var (
 		RemoteDBFlag,
 		DBEngineFlag,
 		StateSchemeFlag,
+		StatePrefixFlag,
+		StateCacheFlag,
 		HttpHeaderFlag,
 	}
 )
