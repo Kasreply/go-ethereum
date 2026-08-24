@@ -19,6 +19,7 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -1376,4 +1377,55 @@ func TestStorageDirtiness(t *testing.T) {
 	// the storage change is reverted, dirty value should be set back
 	state.RevertToSnapshot(snap)
 	checkDirty(common.Hash{0x1}, common.Hash{0x1}, true)
+}
+
+type mockFetcher struct {
+	data map[common.Address][]byte
+}
+
+func (m *mockFetcher) GetState(addr common.Address, root common.Hash) ([]byte, error) {
+	val, ok := m.data[addr]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+	return val, nil
+}
+
+func TestRemoteStateDBInterception(t *testing.T) {
+	db := rawdb.NewMemoryDatabase()
+	stateDb := triedb.NewDatabase(db, nil)
+	sdb, err := New(types.EmptyRootHash, NewDatabase(stateDb, nil))
+	if err != nil {
+		t.Fatalf("failed to create StateDB: %v", err)
+	}
+
+	remoteAddr := common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	remoteAcct := types.StateAccount{
+		Nonce:    42,
+		Balance:  uint256.NewInt(1000),
+		Root:     types.EmptyRootHash,
+		CodeHash: types.EmptyCodeHash.Bytes(),
+	}
+	encoded, err := rlp.EncodeToBytes(&remoteAcct)
+	if err != nil {
+		t.Fatalf("failed to encode account: %v", err)
+	}
+
+	fetcher := &mockFetcher{
+		data: map[common.Address][]byte{
+			remoteAddr: encoded,
+		},
+	}
+	sdb.SetStateFetcher(fetcher)
+
+	// Fetch remote account via StateDB read
+	nonce := sdb.GetNonce(remoteAddr)
+	if nonce != 42 {
+		t.Fatalf("expected nonce 42, got %d", nonce)
+	}
+
+	bal := sdb.GetBalance(remoteAddr)
+	if bal.Uint64() != 1000 {
+		t.Fatalf("expected balance 1000, got %s", bal.String())
+	}
 }

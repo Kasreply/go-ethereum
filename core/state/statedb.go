@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/ethereum/go-ethereum/trie/trienode"
 	"github.com/ethereum/go-ethereum/trie/utils"
@@ -76,11 +77,18 @@ func (m *mutation) isDelete() bool {
 // trie, storage tries) will no longer be functional. A new state instance
 // must be created with new root and updated database for accessing post-
 // commit states.
+
+// StateFetcher defines the interface for remote state retrieval with proof verification.
+type StateFetcher interface {
+	GetState(addr common.Address, root common.Hash) ([]byte, error)
+}
+
 type StateDB struct {
 	db         Database
 	prefetcher *triePrefetcher
 	trie       Trie
 	reader     Reader
+	fetcher    StateFetcher
 
 	// originalRoot is the pre-state root, before any changes were made.
 	// It will be updated when the Commit is called.
@@ -586,7 +594,20 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	}
 	s.AccountReads += time.Since(start)
 
-	// Short circuit if the account is not found
+	// If account is not found locally, query remote state fetcher if configured
+	if acct == nil {
+		if s.fetcher != nil {
+			val, err := s.fetcher.GetState(addr, s.originalRoot)
+			if err == nil && len(val) > 0 {
+				var remoteAcct types.StateAccount
+				if rerr := rlp.DecodeBytes(val, &remoteAcct); rerr == nil {
+					acct = &remoteAcct
+				}
+			}
+		}
+	}
+
+	// Short circuit if still not found
 	if acct == nil {
 		return nil
 	}
@@ -601,6 +622,11 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	s.setStateObject(obj)
 	s.AccountLoaded++
 	return obj
+}
+
+// SetStateFetcher configures the remote state-sharing fetcher.
+func (s *StateDB) SetStateFetcher(f StateFetcher) {
+	s.fetcher = f
 }
 
 func (s *StateDB) setStateObject(object *stateObject) {
