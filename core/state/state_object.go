@@ -196,6 +196,13 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.Hash {
 	}
 	s.db.StorageReads += time.Since(start)
 
+	// If slot is empty locally and remote fetcher is present, try remote query
+	if value == (common.Hash{}) && s.db.fetcher != nil && s.data.Root != types.EmptyRootHash {
+		if remoteVal, rerr := s.db.fetcher.GetStorage(s.address, key, s.data.Root); rerr == nil {
+			value = remoteVal
+		}
+	}
+
 	// Schedule the resolved storage slots for prefetching if it's enabled.
 	if s.db.prefetcher != nil && s.data.Root != types.EmptyRootHash {
 		if err = s.db.prefetcher.prefetch(s.addrHash, s.origin.Root, s.address, nil, []common.Hash{key}, true); err != nil {
@@ -511,8 +518,16 @@ func (s *stateObject) Code() []byte {
 		return nil
 	}
 	code, err := s.db.db.ContractCode(s.address, common.BytesToHash(s.CodeHash()))
-	if err != nil {
-		s.db.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
+	if err != nil || len(code) == 0 {
+		if s.db.fetcher != nil {
+			if remoteCode, rerr := s.db.fetcher.GetCode(s.address, common.BytesToHash(s.CodeHash())); rerr == nil && len(remoteCode) > 0 {
+				s.code = remoteCode
+				return remoteCode
+			}
+		}
+		if err != nil {
+			s.db.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
+		}
 	}
 	s.code = code
 	return code

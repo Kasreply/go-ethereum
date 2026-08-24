@@ -1380,7 +1380,9 @@ func TestStorageDirtiness(t *testing.T) {
 }
 
 type mockFetcher struct {
-	data map[common.Address][]byte
+	data    map[common.Address][]byte
+	storage map[common.Address]map[common.Hash]common.Hash
+	code    map[common.Hash][]byte
 }
 
 func (m *mockFetcher) GetState(addr common.Address, root common.Hash) ([]byte, error) {
@@ -1389,6 +1391,22 @@ func (m *mockFetcher) GetState(addr common.Address, root common.Hash) ([]byte, e
 		return nil, errors.New("not found")
 	}
 	return val, nil
+}
+
+func (m *mockFetcher) GetStorage(addr common.Address, key common.Hash, root common.Hash) (common.Hash, error) {
+	if slots, ok := m.storage[addr]; ok {
+		if val, vok := slots[key]; vok {
+			return val, nil
+		}
+	}
+	return common.Hash{}, errors.New("slot not found")
+}
+
+func (m *mockFetcher) GetCode(addr common.Address, codeHash common.Hash) ([]byte, error) {
+	if code, ok := m.code[codeHash]; ok {
+		return code, nil
+	}
+	return nil, errors.New("code not found")
 }
 
 func TestRemoteStateDBInterception(t *testing.T) {

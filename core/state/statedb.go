@@ -81,6 +81,8 @@ func (m *mutation) isDelete() bool {
 // StateFetcher defines the interface for remote state retrieval with proof verification.
 type StateFetcher interface {
 	GetState(addr common.Address, root common.Hash) ([]byte, error)
+	GetStorage(addr common.Address, key common.Hash, storageRoot common.Hash) (common.Hash, error)
+	GetCode(addr common.Address, codeHash common.Hash) ([]byte, error)
 }
 
 type StateDB struct {
