@@ -116,7 +116,12 @@ func (s *StateStore) GetStateProof(key common.Address) (*RemoteState, error) {
 // If the key belongs to this node, it is read locally.
 // Otherwise, the request is forwarded to the peer and the returned
 // state proof is verified before the value is accepted.
-func (s *StateStore) GetState(key common.Address) ([]byte, error) {
+//
+// trustedRoot must come from a source the caller trusts
+// independently of the peer being queried -- e.g. the state root
+// recorded in a locally-synced block header. It must NOT be derived
+// from any field on the peer's own response.
+func (s *StateStore) GetState(key common.Address, trustedRoot common.Hash) ([]byte, error) {
 	if s.ownership.BelongsToAddress(key) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
@@ -142,18 +147,7 @@ func (s *StateStore) GetState(key common.Address) ([]byte, error) {
 		return nil, errors.New("peer returned empty state response")
 	}
 
-	// Verify that the proof is tied to the claimed state root.
-	if remote.Proof.Root != remote.Root {
-		return nil, errors.New("remote proof root does not match remote state root")
-	}
-
-	// Verify the returned value against the remote node's
-	// Merkle root and proof.
-	value, err := VerifyStateProof(
-		remote.Root,
-		key.Bytes(),
-		remote.Proof.Nodes,
-	)
+	value, err := VerifyRemoteState(remote, key.Bytes(), trustedRoot)
 	if err != nil {
 		return nil, err
 	}
