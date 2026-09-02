@@ -61,6 +61,37 @@ func (s *StateStore) Put(key common.Address, value []byte) error {
 	return nil
 }
 
+// Root returns this node's current state root, computed over all locally
+// stored data. Unlike GetStateProof, this does not require or return a
+// proof for any specific key.
+//
+// This exists so a trusted root can be obtained via a call that is
+// structurally separate from the proof-carrying response being verified
+// (see server.go's /root endpoint) -- it is still sourced from the same
+// node being queried, so it does not by itself make the peer trustworthy;
+// it stands in for what a real deployment would instead get from an
+// independent source such as a locally-synced block header.
+func (s *StateStore) Root() (common.Hash, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	diskdb := rawdb.NewMemoryDatabase()
+	trieDB := triedb.NewDatabase(diskdb, nil)
+
+	tr, err := trie.New(trie.TrieID(common.Hash{}), trieDB)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	for address, state := range s.data {
+		if err := tr.Update(address.Bytes(), state); err != nil {
+			return common.Hash{}, err
+		}
+	}
+
+	return tr.Hash(), nil
+}
+
 // GetStateProof returns a locally stored value together with
 // its Merkle proof.
 func (s *StateStore) GetStateProof(key common.Address) (*RemoteState, error) {

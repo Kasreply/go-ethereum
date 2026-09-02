@@ -1,0 +1,79 @@
+# Minimal 4-node state-sharing demo.
+#
+# Four independent containers, each owning a disjoint 1/4 slice of the
+# demo keyspace (PrefixLength=2, NodePrefix 0/1/2/3). Peer endpoints are
+# static Compose service names -- no devp2p, no DHT, just a fixed map
+# from prefix to endpoint, matching the paper's single-hop lookup
+# simplification.
+#
+# node0 is configured as the requester: after startup it fetches and
+# verifies a value owned by node2 over real HTTP, using a root obtained
+# from node2's separate /root endpoint as the trusted root. Watch its
+# log for "DEMO PASSED" / "DEMO FAILED":
+#
+#   docker compose up --build
+#   docker compose logs -f node0
+#
+services:
+  node0:
+    build:
+      context: .
+      dockerfile: Dockerfile.state-sharing-node
+    command:
+      - "-node-prefix=0"
+      - "-prefix-len=2"
+      - "-http-addr=:8551"
+      - "-peers=0=node0:8551,1=node1:8551,2=node2:8551,3=node3:8551"
+      - "-demo-target-prefix=2"
+      - "-demo-delay=3s"
+      - "-demo-retries=15"
+    ports:
+      - "9550:8551"
+    networks:
+      - state-sharing
+
+  node1:
+    build:
+      context: .
+      dockerfile: Dockerfile.state-sharing-node
+    command:
+      - "-node-prefix=1"
+      - "-prefix-len=2"
+      - "-http-addr=:8551"
+      - "-peers=0=node0:8551,1=node1:8551,2=node2:8551,3=node3:8551"
+    ports:
+      - "9551:8551"
+    networks:
+      - state-sharing
+
+  node2:
+    build:
+      context: .
+      dockerfile: Dockerfile.state-sharing-node
+    command:
+      - "-node-prefix=2"
+      - "-prefix-len=2"
+      - "-http-addr=:8551"
+      - "-peers=0=node0:8551,1=node1:8551,2=node2:8551,3=node3:8551"
+    ports:
+      - "9552:8551"
+    networks:
+      - state-sharing
+
+  node3:
+    build:
+      context: .
+      dockerfile: Dockerfile.state-sharing-node
+    command:
+      - "-node-prefix=3"
+      - "-prefix-len=2"
+      - "-http-addr=:8551"
+      - "-peers=0=node0:8551,1=node1:8551,2=node2:8551,3=node3:8551"
+    ports:
+      - "9553:8551"
+    networks:
+      - state-sharing
+
+networks:
+  state-sharing:
+    driver: bridge
