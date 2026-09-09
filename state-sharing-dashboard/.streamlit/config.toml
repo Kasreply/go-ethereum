@@ -1,0 +1,3 @@
+# Keep native Streamlit widgets consistent with the existing dashboard CSS.
+[theme]
+base = "dark"

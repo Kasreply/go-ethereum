@@ -42,3 +42,11 @@ profile.cov
 .vscode
 
 tests/spec-tests/
+
+# Python dashboard development artifacts
+.venv/
+__pycache__/
+*.pyc
+/state-sharing-dashboard/.pytest_cache/
+/state-sharing-dashboard/.streamlit/cache/
+/state-sharing-dashboard/.streamlit/secrets.toml

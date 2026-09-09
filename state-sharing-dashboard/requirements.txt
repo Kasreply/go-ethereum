@@ -1,0 +1,6 @@
+streamlit>=1.30
+requests>=2.31
+rlp>=5.0
+trie>=4.0
+pycryptodome>=3.20
+pandas>=2.0

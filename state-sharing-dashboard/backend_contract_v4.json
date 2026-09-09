@@ -1,0 +1,95 @@
+{
+  "version": "v4-draft-1",
+  "principle": "Every metric must identify its provenance as live/measured, emulated, or modelled.",
+  "endpoints": {
+    "GET /status": {
+      "purpose": "Node identity, ownership and runtime counters for the operations console.",
+      "response": {
+        "nodeId": 2,
+        "shardName": "Shard C",
+        "prefixBits": "10",
+        "prefixLength": 2,
+        "stateRoot": "0x...",
+        "blockNumber": 1042,
+        "online": true,
+        "requestsServed": 1821,
+        "stateBytesServed": 918231,
+        "proofBytesServed": 2218821
+      }
+    },
+    "GET /cache/stats": {
+      "purpose": "Expose value-cache telemetry. Witness/proof caches are deliberately root-scoped and separate.",
+      "response": {
+        "accountHeaders": {"entries": 120, "bytes": 44120, "hits": 810, "misses": 190, "evictions": 42},
+        "storageSlots": {"entries": 256, "bytes": 98304, "hits": 1200, "misses": 570, "evictions": 91},
+        "contractBytecode": {"entries": 35, "bytes": 624000, "hits": 313, "misses": 21, "evictions": 4}
+      }
+    },
+    "POST /state/batch": {
+      "purpose": "Fetch multiple remote keys from one owner with a block-scoped deduplicated MPT witness.",
+      "request": {
+        "parentStateRoot": "0x...",
+        "keys": ["0xkey1", "0xkey2"]
+      },
+      "response": {
+        "parentStateRoot": "0x...",
+        "values": [{"key": "0xkey1", "value": "0x..."}],
+        "proofTrieDictionary": {
+          "nodeHash1": "base64-rlp-node-preimage",
+          "nodeHash2": "base64-rlp-node-preimage"
+        },
+        "metrics": {
+          "requestedKeys": 2,
+          "uniqueProofNodes": 11,
+          "proofBytes": 2940,
+          "generationMicros": 341
+        }
+      }
+    },
+    "POST /block/execute": {
+      "purpose": "Benchmark the prefix-partitioned execution pipeline without assuming K(B) is complete before execution.",
+      "request": {
+        "blockId": "demo-1042",
+        "transactions": [],
+        "emulatedNetworkProfile": null
+      },
+      "response": {
+        "blockId": "demo-1042",
+        "parentStateRoot": "0x...",
+        "newStateRoot": "0x...",
+        "stateResolution": {
+          "knownHintKeys": 71,
+          "localKeys": 29,
+          "cacheHits": 18,
+          "remotePrefetched": 19,
+          "runtimeFallbackMisses": 5,
+          "prefetchCoveragePct": 79.17
+        },
+        "timingMicros": {
+          "prefetch": 12000,
+          "proofVerification": 2400,
+          "evmCpu": 9100,
+          "runtimeFallback": 5000,
+          "commit": 1200,
+          "total": 29700
+        },
+        "network": {
+          "remoteRequests": 4,
+          "stateBytes": 20122,
+          "proofBytes": 14221
+        },
+        "provenance": "measured"
+      }
+    }
+  },
+  "cacheCoherence": {
+    "valueCache": "May survive block boundaries subject to state freshness/version checks.",
+    "witnessCache": "Root-bound. Discard or explicitly re-anchor when the parent state root changes."
+  },
+  "prefetchSemantics": {
+    "rule": "Prefetch is an optimization, never a correctness assumption.",
+    "knownKeys": "Access-list and trace-derived hints may be fetched concurrently before EVM execution.",
+    "dynamicKeys": "StateDB must retain a synchronous verified remote-miss fallback for runtime-discovered state."
+  },
+  "metricProvenance": ["measured", "emulated", "modelled", "literature"]
+}
